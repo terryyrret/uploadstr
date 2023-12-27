@@ -13,4 +13,4 @@ serde_json = { version = "1.0.108", features = [ "std" ] }
 config = "0.13.4"
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
-version = "0.3"
+version = "0.5"
