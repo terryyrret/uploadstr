@@ -10,6 +10,7 @@ mod config;
 
 use endpoints::upload_file;
 use endpoints::list_files;
+use endpoints::delete_file;
 use config::get_config_value;
 
 // Use Jemalloc only for musl-64 bits platforms
@@ -20,19 +21,21 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 #[tokio::main]
 async fn main() -> () {
-    let filesDir = get_config_value("filesDir").unwrap();
+    let files_dir = get_config_value("filesDir").unwrap();
     let bind = get_config_value("bind").unwrap();
 
     let app = Route::new()
         .at("/upload", post(upload_file))
         .at("/list", get(list_files))
+        .at("/delete", post(delete_file))
         .nest(
             "/f",
-            StaticFilesEndpoint::new(filesDir)
+            StaticFilesEndpoint::new(files_dir)
         )
         .with(Cors::new().allow_credentials(true));
 
     Server::new(TcpListener::bind(bind))
       .run(app)
-      .await;
+      .await
+      .expect("To just run...")
 }

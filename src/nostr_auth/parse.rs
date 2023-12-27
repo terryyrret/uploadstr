@@ -4,6 +4,8 @@ use base64::Engine;
 use nostr::event::Event;
 use nostr::prelude::Value;
 use nostr::prelude::core::str::FromStr;
+use nostr::TagKind;
+use nostr::Tag;
 
 pub struct NostrAuth(Event);
 
@@ -63,5 +65,39 @@ impl<'a> FromRequest<'a> for NostrAuth {
             .map(|event|
                 NostrAuth(event)
             )
+    }
+}
+
+pub fn get_filename(event: &Event) -> Result<String> {
+    let mut filename_tags = event.tags.iter().filter_map(|tag| match tag {
+        Tag::Generic(TagKind::Custom(key), values) if key == "filename" => Some(values),
+        _ => None,
+    });
+
+
+    if let Some(filenames) = filename_tags.nth(0) {
+        if let Some(_) = filename_tags.nth(0) {
+            Err(Error::from_string(
+                "There are multiple filename tags.",
+                StatusCode::BAD_REQUEST,
+            ))
+        } else if filenames.len() != 1 {
+            Err(Error::from_string(
+                "The list of filenames does not have exactly one element.",
+                StatusCode::BAD_REQUEST,
+            ))
+        } else {
+            Ok(
+                filenames
+                .get(0)
+                .expect("There should be one element because of the previous if-statement.")
+                .to_string()
+            )
+        }
+    } else {
+        Err(Error::from_string(
+            "Either the list of filenames is empty or has more than one element.",
+            StatusCode::BAD_REQUEST,
+        ))
     }
 }
