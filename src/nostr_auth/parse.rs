@@ -68,36 +68,33 @@ impl<'a> FromRequest<'a> for NostrAuth {
     }
 }
 
-pub fn get_filename(event: &Event) -> Result<String> {
-    let mut filename_tags = event.tags.iter().filter_map(|tag| match tag {
-        Tag::Generic(TagKind::Custom(key), values) if key == "filename" => Some(values),
+pub fn get_tag(event: &Event, tag_name: &str) -> Result<Option<String>> {
+    let mut tags = event.tags.iter().filter_map(|tag| match tag {
+        Tag::Generic(TagKind::Custom(key), values) if key == tag_name => Some(values),
         _ => None,
     });
 
 
-    if let Some(filenames) = filename_tags.nth(0) {
-        if let Some(_) = filename_tags.nth(0) {
+    if let Some(values) = tags.nth(0) {
+        if let Some(_) = tags.nth(0) {
             Err(Error::from_string(
-                "There are multiple filename tags.",
+                format!("There are multiple {} tags.", tag_name),
                 StatusCode::BAD_REQUEST,
             ))
-        } else if filenames.len() != 1 {
+        } else if values.len() != 1 {
             Err(Error::from_string(
-                "The list of filenames does not have exactly one element.",
+                format!("The {} tag does not have exactly one element", tag_name),
                 StatusCode::BAD_REQUEST,
             ))
         } else {
-            Ok(
-                filenames
+            Ok(Some(
+                values
                 .get(0)
                 .expect("There should be one element because of the previous if-statement.")
                 .to_string()
-            )
+            ))
         }
     } else {
-        Err(Error::from_string(
-            "Either the list of filenames is empty or has more than one element.",
-            StatusCode::BAD_REQUEST,
-        ))
+        Ok(None)
     }
 }

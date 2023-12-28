@@ -17,6 +17,7 @@ use crypto::sha2::Sha256;
 
 use crate::config::get_config_value;
 use crate::config::get_config_values;
+use crate::nostr_auth::parse::get_tag;
 
 pub fn check_file_auth(event: &Event, data: &Vec<u8>) -> Result<String> {
     check_auth(event, HttpMethod::POST, "/upload")?;
@@ -61,34 +62,7 @@ pub fn check_file_auth(event: &Event, data: &Vec<u8>) -> Result<String> {
 
     let b64 = URL_SAFE_NO_PAD.encode(&sha256_hash);
 
-    let ext_str = String::from("ext");
-
-    let mut exts = event.tags.iter().filter_map(|tag| match tag {
-        Tag::Generic(TagKind::Custom(ext_str), ext_arr) => Some(ext_arr),
-        _ => None,
-    });
-
-    let ext_vec = exts.nth(0);
-
-    if ext_vec.is_some() {
-        if let Some(_) = exts.nth(0) {
-            return Err(Error::from_string(
-                "There are multiple ext tags.",
-                StatusCode::BAD_REQUEST,
-            ));
-        }
-    }
-
-    let filename = if let Some(exts) = ext_vec {
-        if exts.len() != 1 {
-            return Err(Error::from_string(
-                "There are multiple ext specified.",
-                StatusCode::BAD_REQUEST,
-            ));
-        }
-
-        let ext = &exts[0];
-
+    let filename = if let Some(ext) = get_tag(event, "ext")? {
         format!("{}.{}", b64, ext)
     } else {
         format!("{}", b64)

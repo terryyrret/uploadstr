@@ -8,7 +8,7 @@ use filesystem::save_file;
 use crate::config::get_config_value;
 use crate::nostr_auth::check::check_auth;
 use crate::nostr_auth::check::check_file_auth;
-use crate::nostr_auth::parse::get_filename;
+use crate::nostr_auth::parse::get_tag;
 use crate::nostr_auth::parse::NostrAuth;
 
 use nostr::HttpMethod;
@@ -25,18 +25,27 @@ pub fn delete_file(auth: NostrAuth) -> Result<String> {
     print_result(|| {
         check_auth(&auth.get_event(), HttpMethod::POST, "/delete")?;
 
-        get_filename(&auth.get_event()).and_then(|filename| {
-            get_config_value("filesDir").and_then(|files_dir| {
-                del_file(&files_dir, &filename)
-                    .map(|_| format!("Successfully deleted {}", filename))
-                    .map_err(|_| {
-                        Error::from_string(
-                            "Could not delete file from server...",
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                        )
-                    })
+        get_tag(&auth.get_event(), "filename")
+            .and_then(|maybe_tag| {
+                maybe_tag.ok_or_else(|| {
+                    Error::from_string(
+                        "There is no filename tag specified.",
+                        StatusCode::BAD_REQUEST,
+                    )
+                })
             })
-        })
+            .and_then(|filename| {
+                get_config_value("filesDir").and_then(|files_dir| {
+                    del_file(&files_dir, &filename)
+                        .map(|_| format!("Successfully deleted {}", filename))
+                        .map_err(|_| {
+                            Error::from_string(
+                                "Could not delete file from server...",
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                            )
+                        })
+                })
+            })
     })
 }
 
