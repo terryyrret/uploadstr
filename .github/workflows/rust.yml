@@ -41,9 +41,9 @@ jobs:
         run: cargo build -r && mv target/release/${{matrix.bin}} target/release/${{matrix.name}}
       - name: Release
         uses: softprops/action-gh-release@v1
-        if: github.branch == "master"
+        if: github.ref == 'refs/heads/master'
         with:
           files: |
-            target/release/${{matrix.name}}
+            target/release/${{ matrix.name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
