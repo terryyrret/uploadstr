@@ -2,35 +2,33 @@ name: CI/CD Pipeline
 
 on:
   push:
-  workflow_dispatch:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   pipeline:
-    name: ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - release_for: FreeBSD-x86_64
-            os: ubuntu-20.04
+          - os: ubuntu-latest
             target: x86_64-unknown-freebsd
-            bin: precious
-            name: precious-FreeBSD-x86_64.tar.gz
-            command: build
-
-          - release_for: Windows-x86_64
-            os: windows-latest
+            bin: uploadstr
+            name: uploadstr-x86_64-unknown-freebsd
+          - os: windows-latest
             target: x86_64-pc-windows-msvc
-            bin: precious.exe
-            name: precious-Windows-x86_64.zip
-            command: both
-
-          - release_for: macOS-x86_64
-            os: macOS-latest
+            bin: uploadstr.exe
+            name: uploadstr-x86_64-pc-windows-msvc.exe
+          - os: macOS-latest
             target: x86_64-apple-darwin
-            bin: precious
-            name: precious-Darwin-x86_64.tar.gz
-            command: both
+            bin: uploadstr
+            name: uploadstr-x86_64-apple-darwin
+            
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
     env:
       RUST_BACKTRACE: full
       SCCACHE_GHA_ENABLED: "true"
@@ -39,11 +37,13 @@ jobs:
       - uses: actions/checkout@v3
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.3
-      - name: Build binary
-        uses: houseabsolute/actions-rust-cross@v0
+      - name: Build
+        run: cargo build -r && mv target/release/${{matrix.bin}} target/release/${{matrix.name}}
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: github.branch == "master"
         with:
-          command: ${{ matrix.command }}
-          target: ${{ matrix.target }}
-          args: "--locked --release"
-          strip: true
-
+          files: |
+            target/release/${{matrix.name}}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
