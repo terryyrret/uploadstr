@@ -38,7 +38,13 @@ jobs:
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.3
       - name: Build
-        run: cargo build -r && mv target/release/${{matrix.bin}} target/release/${{matrix.name}}
+        run: cargo build -r
+      - name: Test
+        run: cargo test -r --no-fail-fast --future-incompat-report
+      - name: Lint
+        run: cargo clippy -- -D warnings
+      - name: Rename output
+        run: mv target/release/${{matrix.bin}} target/release/${{matrix.name}}
       - name: Release
         uses: softprops/action-gh-release@v1
         if: github.ref == 'refs/heads/master'
