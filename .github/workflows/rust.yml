@@ -6,37 +6,44 @@ on:
 
 jobs:
   pipeline:
-    name: ${{ matrix.make.name }} (${{ matrix.os }})
+    name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        rust: [stable]
         include:
-          - os: ubuntu-latest
-            sccache-path: /home/runner/.cache/sccache
-          - os: macos-latest
-            sccache-path: /Users/runner/Library/Caches/Mozilla.sccache
-        exclude:
-          - os: macos-latest
-            rust: stable
+          - release_for: FreeBSD-x86_64
+            os: ubuntu-20.04
+            target: x86_64-unknown-freebsd
+            bin: precious
+            name: precious-FreeBSD-x86_64.tar.gz
+            command: build
+
+          - release_for: Windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: precious.exe
+            name: precious-Windows-x86_64.zip
+            command: both
+
+          - release_for: macOS-x86_64
+            os: macOS-latest
+            target: x86_64-apple-darwin
+            bin: precious
+            name: precious-Darwin-x86_64.tar.gz
+            command: both
     env:
       RUST_BACKTRACE: full
       SCCACHE_GHA_ENABLED: "true"
       RUSTC_WRAPPER: "sccache"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.3
-      - name: Install Rust ${{ matrix.rust }}
-        uses: actions-rs/toolchain@v1
+      - name: Build binary
+        uses: houseabsolute/actions-rust-cross@v0
         with:
-          toolchain: ${{ matrix.rust }}
-          profile: minimal
-          override: true
-      - name: Run clippy
-        run: cargo clippy -- -D warnings
-      - name: Run sccache stat for check
-        shell: bash
-        run: ${SCCACHE_PATH} --show-stats
+          command: ${{ matrix.command }}
+          target: ${{ matrix.target }}
+          args: "--locked --release"
+          strip: true
+
