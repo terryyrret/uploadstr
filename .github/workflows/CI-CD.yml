@@ -57,6 +57,8 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.3
       - name: Test
         run: cargo test --no-fail-fast --future-incompat-report
+      - name: Lint
+        run: cargo clippy -- -D warnings 
       - name: Build
         run: cargo build -r
       - name: Rename output
