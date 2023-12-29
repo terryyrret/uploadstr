@@ -19,8 +19,8 @@ use crate::config::get_config_value;
 use crate::config::get_config_values;
 use crate::nostr_auth::parse::get_tag;
 
-pub fn check_file_auth(event: &Event, data: &[u8]) -> Result<String> {
-    check_auth(event, HttpMethod::POST, "/upload")?;
+pub fn file_auth(event: &Event, data: &[u8]) -> Result<String> {
+    auth(event, HttpMethod::POST, "/upload")?;
 
     let mut payloads = event.tags.iter().filter_map(|tag| match tag {
         Tag::Payload(hash) => Some(hash),
@@ -61,7 +61,7 @@ pub fn check_file_auth(event: &Event, data: &[u8]) -> Result<String> {
     let b64 = URL_SAFE_NO_PAD.encode(sha256_hash);
 
     let filename = if let Some(ext) = get_tag(event, "ext")? {
-        format!("{}.{}", b64, ext)
+        format!("{b64}.{ext}")
     } else {
         b64.to_string()
     };
@@ -69,7 +69,7 @@ pub fn check_file_auth(event: &Event, data: &[u8]) -> Result<String> {
     Ok(filename)
 }
 
-pub fn check_auth(event: &Event, method: HttpMethod, path: &str) -> Result<()> {
+pub fn auth(event: &Event, method: HttpMethod, path: &str) -> Result<()> {
     event.verify().map_err(|_| {
         Error::from_string(
             "EventId/Signature are not valid...",
@@ -117,7 +117,7 @@ pub fn check_auth(event: &Event, method: HttpMethod, path: &str) -> Result<()> {
 
     let base_url = get_config_value("baseUrl")?;
 
-    if Some(UncheckedUrl::from(format!("{}{}", base_url, path))) != urls.next().cloned()
+    if Some(UncheckedUrl::from(format!("{base_url}{path}"))) != urls.next().cloned()
         || urls.next().is_some()
     // Checks for multiple u tags...
     {
@@ -142,4 +142,15 @@ pub fn check_auth(event: &Event, method: HttpMethod, path: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_name() {
+
+    }
 }

@@ -7,13 +7,7 @@ use nostr::prelude::core::str::FromStr;
 use nostr::TagKind;
 use nostr::Tag;
 
-pub struct NostrAuth(Event);
-
-impl NostrAuth {
-    pub fn get_event(&self) -> &Event {
-        &self.0
-    }
-}
+pub struct NostrAuth(pub Event);
 
 #[poem::async_trait]
 impl<'a> FromRequest<'a> for NostrAuth {
@@ -25,13 +19,13 @@ impl<'a> FromRequest<'a> for NostrAuth {
                     StatusCode::BAD_REQUEST
             ))
             .and_then(|auth|
-                if auth[0.."Nostr ".len()] != *"Nostr " {
+                if auth[0.."Nostr ".len()] == *"Nostr " {
+                    Ok(&auth["Nostr ".len()..])
+                } else {
                     Err(Error::from_string(
                         "The authorization scheme is not Nostr",
                         StatusCode::BAD_REQUEST
                     ))
-                } else {
-                    Ok(&auth["Nostr ".len()..])
                 }
             )
             .and_then(|b64_event|
@@ -77,12 +71,12 @@ pub fn get_tag(event: &Event, tag_name: &str) -> Result<Option<String>> {
     if let Some(values) = tags.next() {
         if tags.next().is_some() {
             Err(Error::from_string(
-                format!("There are multiple {} tags.", tag_name),
+                format!("There are multiple {tag_name} tags."),
                 StatusCode::BAD_REQUEST,
             ))
         } else if values.len() != 1 {
             Err(Error::from_string(
-                format!("The {} tag does not have exactly one element", tag_name),
+                format!("The {tag_name} tag does not have exactly one element"),
                 StatusCode::BAD_REQUEST,
             ))
         } else {

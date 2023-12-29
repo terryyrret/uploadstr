@@ -37,5 +37,5 @@ async fn main() {
     Server::new(TcpListener::bind(bind))
       .run(app)
       .await
-      .expect("To just run...")
+      .expect("To just run...");
 }
