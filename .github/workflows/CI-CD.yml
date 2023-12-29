@@ -3,6 +3,7 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ "master" ]
+    tags: [ 'v*.*.*' ]  
   pull_request:
     branches: [ "master" ]
 
@@ -56,9 +57,9 @@ jobs:
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.3
       - name: Test
-        run: cargo test --no-fail-fast --future-incompat-report
+        run: cargo test -r --no-fail-fast --future-incompat-report
       - name: Lint
-        run: cargo clippy -- -D warnings 
+        run: cargo clippy -r -- -D warnings 
       - name: Build
         run: cargo build -r
       - name: Rename output
