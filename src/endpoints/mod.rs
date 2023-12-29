@@ -17,15 +17,15 @@ use serde_json::to_string;
 fn print_result(f: impl FnOnce() -> Result<String>) -> Result<String> {
     let result = f();
     println!("{:#?}", result);
-    return result;
+    result
 }
 
 #[handler]
 pub fn delete_file(auth: NostrAuth) -> Result<String> {
     print_result(|| {
-        check_auth(&auth.get_event(), HttpMethod::POST, "/delete")?;
+        check_auth(auth.get_event(), HttpMethod::POST, "/delete")?;
 
-        get_tag(&auth.get_event(), "filename")
+        get_tag(auth.get_event(), "filename")
             .and_then(|maybe_tag| {
                 maybe_tag.ok_or_else(|| {
                     Error::from_string(
@@ -52,7 +52,7 @@ pub fn delete_file(auth: NostrAuth) -> Result<String> {
 #[handler]
 pub fn upload_file(auth: NostrAuth, data: Vec<u8>) -> Result<String> {
     print_result(|| {
-        check_file_auth(&auth.get_event(), &data).and_then(|filename| {
+        check_file_auth(auth.get_event(), &data).and_then(|filename| {
             get_config_value("baseUrl").and_then(|base_url| {
                 get_config_value("filesDir").and_then(|files_dir| {
                     save_file(&files_dir, &filename, &data)
@@ -72,7 +72,7 @@ pub fn upload_file(auth: NostrAuth, data: Vec<u8>) -> Result<String> {
 #[handler]
 pub fn list_files(auth: NostrAuth) -> Result<String> {
     print_result(|| {
-        check_auth(&auth.get_event(), HttpMethod::GET, "/list")?;
+        check_auth(auth.get_event(), HttpMethod::GET, "/list")?;
 
         get_config_value("baseUrl").and_then(|base_url| {
             get_config_value("filesDir").and_then(|files_dir| {

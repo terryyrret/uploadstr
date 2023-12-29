@@ -25,7 +25,7 @@ impl<'a> FromRequest<'a> for NostrAuth {
                     StatusCode::BAD_REQUEST
             ))
             .and_then(|auth|
-                if auth[0.."Nostr ".len()] != String::from("Nostr ") {
+                if auth[0.."Nostr ".len()] != *"Nostr " {
                     Err(Error::from_string(
                         "The authorization scheme is not Nostr",
                         StatusCode::BAD_REQUEST
@@ -62,8 +62,7 @@ impl<'a> FromRequest<'a> for NostrAuth {
                         StatusCode::BAD_REQUEST
                     ))
             )
-            .map(|event|
-                NostrAuth(event)
+            .map(NostrAuth
             )
     }
 }
@@ -75,8 +74,8 @@ pub fn get_tag(event: &Event, tag_name: &str) -> Result<Option<String>> {
     });
 
 
-    if let Some(values) = tags.nth(0) {
-        if let Some(_) = tags.nth(0) {
+    if let Some(values) = tags.next() {
+        if tags.next().is_some() {
             Err(Error::from_string(
                 format!("There are multiple {} tags.", tag_name),
                 StatusCode::BAD_REQUEST,
@@ -88,8 +87,7 @@ pub fn get_tag(event: &Event, tag_name: &str) -> Result<Option<String>> {
             ))
         } else {
             Ok(Some(
-                values
-                .get(0)
+                values.first()
                 .expect("There should be one element because of the previous if-statement.")
                 .to_string()
             ))
