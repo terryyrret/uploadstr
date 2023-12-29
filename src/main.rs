@@ -20,7 +20,7 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 
 #[tokio::main]
-async fn main() -> () {
+async fn main() {
     let files_dir = get_config_value("filesDir").unwrap();
     let bind = get_config_value("bind").unwrap();
 

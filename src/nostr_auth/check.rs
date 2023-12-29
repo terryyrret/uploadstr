@@ -1,7 +1,7 @@
 use nostr::event::kind::Kind;
 use nostr::event::tag::HttpMethod;
 use nostr::event::tag::Tag;
-use nostr::event::tag::TagKind;
+
 use nostr::event::Event;
 use nostr::prelude::key::XOnlyPublicKey;
 use nostr::types::time::Timestamp;
@@ -17,8 +17,9 @@ use crypto::sha2::Sha256;
 
 use crate::config::get_config_value;
 use crate::config::get_config_values;
+use crate::nostr_auth::parse::get_tag;
 
-pub fn check_file_auth(event: &Event, data: &Vec<u8>) -> Result<String> {
+pub fn check_file_auth(event: &Event, data: &[u8]) -> Result<String> {
     check_auth(event, HttpMethod::POST, "/upload")?;
 
     let mut payloads = event.tags.iter().filter_map(|tag| match tag {
@@ -26,18 +27,16 @@ pub fn check_file_auth(event: &Event, data: &Vec<u8>) -> Result<String> {
         _ => None,
     });
 
-    let payload = payloads.nth(0);
+    let payload = payloads.next();
 
-    if payload.is_some() {
-        if let Some(_) = payloads.nth(0) {
-            return Err(Error::from_string(
-                "There are two payload hashes.",
-                StatusCode::UNAUTHORIZED,
-            ));
-        }
+    if payload.is_some() && payloads.next().is_some() {
+        return Err(Error::from_string(
+            "There are two payload hashes.",
+            StatusCode::UNAUTHORIZED,
+        ));
     }
 
-    if !payload.is_some() {
+    if payload.is_none() {
         return Err(Error::from_string(
             "The payload hash is missing.",
             StatusCode::UNAUTHORIZED,
@@ -49,7 +48,7 @@ pub fn check_file_auth(event: &Event, data: &Vec<u8>) -> Result<String> {
     let mut hasher = Sha256::new();
     let mut sha256_hash: [u8; 32] = [0; 32];
 
-    hasher.input(&data);
+    hasher.input(data);
     hasher.result(&mut sha256_hash);
 
     if actual_hash.as_ref() != sha256_hash {
@@ -59,39 +58,12 @@ pub fn check_file_auth(event: &Event, data: &Vec<u8>) -> Result<String> {
         ));
     }
 
-    let b64 = URL_SAFE_NO_PAD.encode(&sha256_hash);
+    let b64 = URL_SAFE_NO_PAD.encode(sha256_hash);
 
-    let ext_str = String::from("ext");
-
-    let mut exts = event.tags.iter().filter_map(|tag| match tag {
-        Tag::Generic(TagKind::Custom(ext_str), ext_arr) => Some(ext_arr),
-        _ => None,
-    });
-
-    let ext_vec = exts.nth(0);
-
-    if ext_vec.is_some() {
-        if let Some(_) = exts.nth(0) {
-            return Err(Error::from_string(
-                "There are multiple ext tags.",
-                StatusCode::BAD_REQUEST,
-            ));
-        }
-    }
-
-    let filename = if let Some(exts) = ext_vec {
-        if exts.len() != 1 {
-            return Err(Error::from_string(
-                "There are multiple ext specified.",
-                StatusCode::BAD_REQUEST,
-            ));
-        }
-
-        let ext = &exts[0];
-
+    let filename = if let Some(ext) = get_tag(event, "ext")? {
         format!("{}.{}", b64, ext)
     } else {
-        format!("{}", b64)
+        b64.to_string()
     };
 
     Ok(filename)
@@ -107,8 +79,7 @@ pub fn check_auth(event: &Event, method: HttpMethod, path: &str) -> Result<()> {
 
     let whitelisted_pubkeys = get_config_values("pubkeyWhitelist")?
         .into_iter()
-        .map(|pubkey| XOnlyPublicKey::from_str(&pubkey))
-        .flatten()
+        .flat_map(|pubkey| XOnlyPublicKey::from_str(&pubkey))
         .collect::<Vec<XOnlyPublicKey>>();
 
     if !whitelisted_pubkeys.contains(&event.pubkey) {
@@ -125,7 +96,7 @@ pub fn check_auth(event: &Event, method: HttpMethod, path: &str) -> Result<()> {
         ));
     }
 
-    if event.created_at.add(60 as i64) < Timestamp::now() {
+    if event.created_at.add(60_i64) < Timestamp::now() {
         return Err(Error::from_string(
             "Event was not created within the past 60 seconds.",
             StatusCode::UNAUTHORIZED,
@@ -146,8 +117,8 @@ pub fn check_auth(event: &Event, method: HttpMethod, path: &str) -> Result<()> {
 
     let base_url = get_config_value("baseUrl")?;
 
-    if Some(UncheckedUrl::from(format!("{}{}", base_url, path))) != urls.nth(0).cloned()
-        || urls.nth(0).is_some()
+    if Some(UncheckedUrl::from(format!("{}{}", base_url, path))) != urls.next().cloned()
+        || urls.next().is_some()
     // Checks for multiple u tags...
     {
         return Err(Error::from_string(
@@ -161,7 +132,7 @@ pub fn check_auth(event: &Event, method: HttpMethod, path: &str) -> Result<()> {
         _ => None,
     });
 
-    if Some(method) != methods.nth(0).cloned() || methods.nth(0).is_some()
+    if Some(method) != methods.next().cloned() || methods.next().is_some()
     // Checks for multiple method tags...
     {
         return Err(Error::from_string(
@@ -170,5 +141,5 @@ pub fn check_auth(event: &Event, method: HttpMethod, path: &str) -> Result<()> {
         ));
     }
 
-    return Ok(());
+    Ok(())
 }

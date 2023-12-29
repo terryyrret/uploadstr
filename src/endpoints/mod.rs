@@ -8,7 +8,7 @@ use filesystem::save_file;
 use crate::config::get_config_value;
 use crate::nostr_auth::check::check_auth;
 use crate::nostr_auth::check::check_file_auth;
-use crate::nostr_auth::parse::get_filename;
+use crate::nostr_auth::parse::get_tag;
 use crate::nostr_auth::parse::NostrAuth;
 
 use nostr::HttpMethod;
@@ -17,33 +17,42 @@ use serde_json::to_string;
 fn print_result(f: impl FnOnce() -> Result<String>) -> Result<String> {
     let result = f();
     println!("{:#?}", result);
-    return result;
+    result
 }
 
 #[handler]
 pub fn delete_file(auth: NostrAuth) -> Result<String> {
     print_result(|| {
-        check_auth(&auth.get_event(), HttpMethod::POST, "/delete")?;
+        check_auth(auth.get_event(), HttpMethod::POST, "/delete")?;
 
-        get_filename(&auth.get_event()).and_then(|filename| {
-            get_config_value("filesDir").and_then(|files_dir| {
-                del_file(&files_dir, &filename)
-                    .map(|_| format!("Successfully deleted {}", filename))
-                    .map_err(|_| {
-                        Error::from_string(
-                            "Could not delete file from server...",
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                        )
-                    })
+        get_tag(auth.get_event(), "filename")
+            .and_then(|maybe_tag| {
+                maybe_tag.ok_or_else(|| {
+                    Error::from_string(
+                        "There is no filename tag specified.",
+                        StatusCode::BAD_REQUEST,
+                    )
+                })
             })
-        })
+            .and_then(|filename| {
+                get_config_value("filesDir").and_then(|files_dir| {
+                    del_file(&files_dir, &filename)
+                        .map(|_| format!("Successfully deleted {}", filename))
+                        .map_err(|_| {
+                            Error::from_string(
+                                "Could not delete file from server...",
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                            )
+                        })
+                })
+            })
     })
 }
 
 #[handler]
 pub fn upload_file(auth: NostrAuth, data: Vec<u8>) -> Result<String> {
     print_result(|| {
-        check_file_auth(&auth.get_event(), &data).and_then(|filename| {
+        check_file_auth(auth.get_event(), &data).and_then(|filename| {
             get_config_value("baseUrl").and_then(|base_url| {
                 get_config_value("filesDir").and_then(|files_dir| {
                     save_file(&files_dir, &filename, &data)
@@ -63,7 +72,7 @@ pub fn upload_file(auth: NostrAuth, data: Vec<u8>) -> Result<String> {
 #[handler]
 pub fn list_files(auth: NostrAuth) -> Result<String> {
     print_result(|| {
-        check_auth(&auth.get_event(), HttpMethod::GET, "/list")?;
+        check_auth(auth.get_event(), HttpMethod::GET, "/list")?;
 
         get_config_value("baseUrl").and_then(|base_url| {
             get_config_value("filesDir").and_then(|files_dir| {
