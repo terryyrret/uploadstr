@@ -143,3 +143,11 @@ pub fn auth(event: &Event, method: HttpMethod, path: &str) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod test_auth {
+    use super::*;
+
+    #[test]
+    fn should_ok_good_auth() {}
+}
