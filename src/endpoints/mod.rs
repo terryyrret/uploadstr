@@ -1,9 +1,7 @@
 use poem::{handler, http::StatusCode, Error, Result};
 
 mod filesystem;
-use filesystem::delete_file as del_file;
-use filesystem::get_files;
-use filesystem::save_file;
+use filesystem::FS;
 
 use crate::config::get_config_value;
 use crate::nostr_auth::check::auth;
@@ -21,7 +19,6 @@ fn print_result(f: impl FnOnce() -> Result<String>) -> Result<String> {
 }
 
 #[handler]
-#[allow(clippy::needless_pass_by_value)]
 pub fn delete_file(NostrAuth(event): NostrAuth) -> Result<String> {
     print_result(|| {
         auth(&event, HttpMethod::POST, "/delete")?;
@@ -37,14 +34,9 @@ pub fn delete_file(NostrAuth(event): NostrAuth) -> Result<String> {
             })
             .and_then(|filename| {
                 get_config_value("filesDir").and_then(|files_dir| {
-                    del_file(&files_dir, &filename)
+                    FS::new()
+                        .delete_file(&files_dir, &filename)
                         .map(|()| format!("Successfully deleted {filename}"))
-                        .map_err(|_| {
-                            Error::from_string(
-                                "Could not delete file from server...",
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                            )
-                        })
                 })
             })
     })
@@ -58,14 +50,9 @@ pub fn upload_file(NostrAuth(event): NostrAuth, data: Vec<u8>) -> Result<String>
         let base_url = get_config_value("baseUrl")?;
         let files_dir = get_config_value("filesDir")?;
 
-        save_file(&files_dir, &filename, &data)
+        FS::new()
+            .save_file(&files_dir, &filename, &data)
             .map(|()| format!("{base_url}/f/{filename}"))
-            .map_err(|_| {
-                Error::from_string(
-                    "Could not save file to server.",
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                )
-            })
     })
 }
 
@@ -77,13 +64,8 @@ pub fn list_files(NostrAuth(event): NostrAuth) -> Result<String> {
 
         get_config_value("baseUrl").and_then(|base_url| {
             get_config_value("filesDir").and_then(|files_dir| {
-                get_files(&files_dir)
-                    .map_err(|_| {
-                        Error::from_string(
-                            "Failed to get list of files",
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                        )
-                    })
+                FS::new()
+                    .get_files(&files_dir)
                     .map(|list| {
                         list.into_iter()
                             .map(|filename| format!("{base_url}/f/{filename}"))

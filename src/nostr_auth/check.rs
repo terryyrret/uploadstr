@@ -143,14 +143,3 @@ pub fn auth(event: &Event, method: HttpMethod, path: &str) -> Result<()> {
 
     Ok(())
 }
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_name() {
-
-    }
-}
