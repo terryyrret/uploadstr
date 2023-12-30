@@ -31,7 +31,7 @@ pub fn file_auth(event: &Event, data: &[u8]) -> Result<String> {
     if payload.is_some() && payloads.next().is_some() {
         return Err(Error::from_string(
             "There are two payload hashes.",
-            StatusCode::UNAUTHORIZED,
+            xStatusCode::UNAUTHORIZED,
         ));
     }
 
@@ -142,6 +142,10 @@ pub fn auth(event: &Event, method: HttpMethod, path: &str) -> Result<()> {
 mod test_auth {
     use super::*;
 
+    use nostr::event::builder::EventBuilder;
+
     #[test]
-    fn should_ok_good_auth() {}
+    fn should_ok_good_auth() {
+        EventBuilder::new(Kind::HttpAuth, "", vec![Tag::Method(HttpMethod::POST)])
+    }
 }
