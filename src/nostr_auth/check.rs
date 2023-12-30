@@ -4,6 +4,7 @@ use nostr::event::tag::Tag;
 
 use nostr::event::Event;
 use nostr::prelude::key::XOnlyPublicKey;
+use nostr::secp256k1::ThirtyTwoByteHash;
 use nostr::types::time::Timestamp;
 use nostr::UncheckedUrl;
 use poem::{http::StatusCode, Error, Result};
@@ -12,8 +13,6 @@ use std::str::FromStr;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
-use crypto::digest::Digest;
-use crypto::sha2::Sha256;
 
 use crate::config::get_config_value;
 use crate::config::get_config_values;
@@ -44,14 +43,9 @@ pub fn file_auth(event: &Event, data: &[u8]) -> Result<String> {
     }
 
     let actual_hash = payload.unwrap();
+    let sha256_hash = ring::digest::digest(&ring::digest::SHA256, data);
 
-    let mut hasher = Sha256::new();
-    let mut sha256_hash: [u8; 32] = [0; 32];
-
-    hasher.input(data);
-    hasher.result(&mut sha256_hash);
-
-    if actual_hash.as_ref() != sha256_hash {
+    if actual_hash.into_32() != sha256_hash.as_ref() {
         return Err(Error::from_string(
             "The given SHA256 hash does not match with the given binary data",
             StatusCode::UNAUTHORIZED,
