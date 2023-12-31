@@ -62,7 +62,7 @@ jobs:
       - name: Test
         run: cargo test -r --no-fail-fast --future-incompat-report
       - name: Lint
-        run: cargo clippy --all-targets -r -- -Dclippy::pedantic
+        run: cargo clippy --all-targets -r -- -D clippy::pedantic
       - name: Build
         run: cargo build -r
       - name: Rename output
