@@ -1678,6 +1678,7 @@ dependencies = [
  "nostr",
  "poem",
  "ring",
+ "serde",
  "serde_json",
  "tokio",
 ]

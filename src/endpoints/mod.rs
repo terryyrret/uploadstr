@@ -3,9 +3,9 @@ use poem::{handler, http::StatusCode, Error, Result};
 mod filesystem;
 use filesystem::FS;
 
-use crate::config::get_config_value;
-use crate::nostr_auth::check::auth;
-use crate::nostr_auth::check::file_auth;
+use crate::config::Config;
+use crate::config::Ops;
+use crate::nostr_auth::check::Auth;
 use crate::nostr_auth::parse::get_tag;
 use crate::nostr_auth::parse::NostrAuth;
 
@@ -21,7 +21,7 @@ fn print_result(f: impl FnOnce() -> Result<String>) -> Result<String> {
 #[handler]
 pub fn delete_file(NostrAuth(event): NostrAuth) -> Result<String> {
     print_result(|| {
-        auth(&event, HttpMethod::POST, "/delete")?;
+        Auth::new().auth(&event, HttpMethod::POST, "/delete")?;
 
         get_tag(&event, "filename")
             .and_then(|maybe_tag| {
@@ -33,11 +33,13 @@ pub fn delete_file(NostrAuth(event): NostrAuth) -> Result<String> {
                 })
             })
             .and_then(|filename| {
-                get_config_value("filesDir").and_then(|files_dir| {
-                    FS::new()
-                        .delete_file(&files_dir, &filename)
-                        .map(|()| format!("Successfully deleted {filename}"))
-                })
+                Config::new()
+                    .get_config_value("filesDir")
+                    .and_then(|files_dir| {
+                        FS::new()
+                            .delete_file(&files_dir, &filename)
+                            .map(|()| format!("Successfully deleted {filename}"))
+                    })
             })
     })
 }
@@ -46,9 +48,10 @@ pub fn delete_file(NostrAuth(event): NostrAuth) -> Result<String> {
 #[allow(clippy::needless_pass_by_value)]
 pub fn upload_file(NostrAuth(event): NostrAuth, data: Vec<u8>) -> Result<String> {
     print_result(|| {
-        let filename = file_auth(&event, &data)?;
-        let base_url = get_config_value("baseUrl")?;
-        let files_dir = get_config_value("filesDir")?;
+        let filename = Auth::new().file_auth(&event, &data)?;
+        let config = Config::new();
+        let base_url = config.get_config_value("baseUrl")?;
+        let files_dir = config.get_config_value("filesDir")?;
 
         FS::new()
             .save_file(&files_dir, &filename, &data)
@@ -60,10 +63,11 @@ pub fn upload_file(NostrAuth(event): NostrAuth, data: Vec<u8>) -> Result<String>
 #[allow(clippy::needless_pass_by_value)]
 pub fn list_files(NostrAuth(event): NostrAuth) -> Result<String> {
     print_result(|| {
-        auth(&event, HttpMethod::GET, "/list")?;
+        Auth::new().auth(&event, HttpMethod::GET, "/list")?;
+        let config = Config::new();
 
-        get_config_value("baseUrl").and_then(|base_url| {
-            get_config_value("filesDir").and_then(|files_dir| {
+        config.get_config_value("baseUrl").and_then(|base_url| {
+            config.get_config_value("filesDir").and_then(|files_dir| {
                 FS::new()
                     .get_files(&files_dir)
                     .map(|list| {
