@@ -207,7 +207,7 @@ mod test_auth {
                 Tag::AbsoluteURL("https://domain.com/api".into()),
                 Tag::Amount {
                     millisats: 10,
-                    bolt11: Some("".to_string()),
+                    bolt11: Some(String::new()),
                 },
             ],
         )
@@ -243,7 +243,7 @@ mod test_auth {
                 Tag::AbsoluteURL("https://domain.com/api".into()),
                 Tag::Amount {
                     millisats: 10,
-                    bolt11: Some("".to_string()),
+                    bolt11: Some(String::new()),
                 },
             ],
         )
@@ -278,7 +278,7 @@ mod test_auth {
                 Tag::AbsoluteURL("https://domain.com/api".into()),
                 Tag::Amount {
                     millisats: 10,
-                    bolt11: Some("".to_string()),
+                    bolt11: Some(String::new()),
                 },
             ],
         )
@@ -511,7 +511,6 @@ mod test_auth {
     #[test]
     fn should_err_when_not_on_whitelist_1() {
         let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
-        let _public = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";
         let keys = Keys::from_sk_str(private).unwrap();
         let event = EventBuilder::new(
             Kind::HttpAuth,
@@ -552,7 +551,6 @@ mod test_auth {
     #[test]
     fn should_err_when_not_on_whitelist_2() {
         let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
-        let _public = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";
         let keys = Keys::from_sk_str(private).unwrap();
         let event = EventBuilder::new(
             Kind::HttpAuth,
