@@ -674,6 +674,76 @@ mod test_file_auth {
     use nostr::{EventId, Keys};
 
     #[test]
+    fn should_err_on_missing_file_payload() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let public = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";
+        let keys = Keys::from_sk_str(private).unwrap();
+        let data = b"hello";
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+            ],
+        )
+        .to_event(&keys)
+        .unwrap();
+
+        let mut mock = MockOps::new();
+
+        mock.expect_get_config_values()
+            .withf(|s| s == "pubkeyWhitelist")
+            .returning(|_| Ok(vec![public.into()]));
+
+        mock.expect_get_config_value()
+            .withf(|s| s == "baseUrl")
+            .returning(|_| Ok("https://domain.com".to_string()));
+
+        let a = Auth { config: &mock };
+
+        let err = a.file_auth(&event, data).unwrap_err();
+
+        assert_eq!(err.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn should_err_on_multiple_file_payloads() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let public = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";
+        let keys = Keys::from_sk_str(private).unwrap();
+        let data = b"hello";
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Payload(Hash::hash(data)),
+                Tag::Payload(Hash::hash(data)),
+            ],
+        )
+        .to_event(&keys)
+        .unwrap();
+
+        let mut mock = MockOps::new();
+
+        mock.expect_get_config_values()
+            .withf(|s| s == "pubkeyWhitelist")
+            .returning(|_| Ok(vec![public.into()]));
+
+        mock.expect_get_config_value()
+            .withf(|s| s == "baseUrl")
+            .returning(|_| Ok("https://domain.com".to_string()));
+
+        let a = Auth { config: &mock };
+
+        let err = a.file_auth(&event, data).unwrap_err();
+
+        assert_eq!(err.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
     fn should_ok_on_good_auth() {
         let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
         let public = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";

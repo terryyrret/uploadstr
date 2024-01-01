@@ -90,3 +90,135 @@ pub fn get_tag(event: &Event, tag_name: &str) -> Result<Option<String>> {
         Ok(None)
     }
 }
+
+#[cfg(test)]
+mod test_get_tag {
+    use super::*;
+
+    use nostr::EventBuilder;
+    use nostr::Kind;
+    use nostr::HttpMethod;
+    use nostr::Keys;
+    use nostr::key::FromSkStr;
+
+    #[test]
+    fn should_correctly_get_tag_from_good_event_1() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let key = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Generic(TagKind::Custom("ext".into()), vec!["w".into()])
+            ]
+        ).to_event(&key).unwrap();
+
+        let tag = get_tag(&event, "ext").unwrap().unwrap();
+
+        assert_eq!(tag, "w");
+    }
+
+    #[test]
+    fn should_correctly_get_tag_from_good_event_2() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let key = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Generic(TagKind::Custom("1".into()), vec!["a".into()]),
+                Tag::Generic(TagKind::Custom("2".into()), vec!["b".into()]),
+                Tag::Generic(TagKind::Custom("3".into()), vec!["c".into()]),
+                Tag::Generic(TagKind::Custom("4".into()), vec!["d".into()]),
+            ]
+        ).to_event(&key).unwrap();
+
+        let tag = get_tag(&event, "1").unwrap().unwrap();
+
+        assert_eq!(tag, "a");
+    }
+
+    #[test]
+    fn should_correctly_get_tag_from_good_event_3() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let key = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Generic(TagKind::Custom("1".into()), vec!["a".into()]),
+                Tag::Generic(TagKind::Custom("2".into()), vec!["b".into()]),
+                Tag::Generic(TagKind::Custom("3".into()), vec!["c".into()]),
+                Tag::Generic(TagKind::Custom("4".into()), vec!["d".into()]),
+            ]
+        ).to_event(&key).unwrap();
+
+        let tag = get_tag(&event, "4").unwrap().unwrap();
+
+        assert_eq!(tag, "d");
+    }
+
+    #[test]
+    fn should_ok_when_asked_for_missing_tag() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let key = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Generic(TagKind::Custom("ext".into()), vec!["w".into()])
+            ]
+        ).to_event(&key).unwrap();
+
+        let option = get_tag(&event, "does_not_exist").unwrap();
+
+        assert!(option.is_none());
+    }
+
+    #[test]
+    fn should_err_on_multi_of_same_tag() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let key = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Generic(TagKind::Custom("1".into()), vec!["a".into()]),
+                Tag::Generic(TagKind::Custom("1".into()), vec!["b".into()]),
+            ]
+        ).to_event(&key).unwrap();
+
+        let err = get_tag(&event, "1").unwrap_err();
+
+        assert_eq!(err.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn should_err_on_multi_values_of_tag() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let key = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Generic(TagKind::Custom("1".into()), vec!["a".into(), "b".into()]),
+            ]
+        ).to_event(&key).unwrap();
+
+        let err = get_tag(&event, "1").unwrap_err();
+
+        assert_eq!(err.status(), StatusCode::BAD_REQUEST);
+    }
+}
