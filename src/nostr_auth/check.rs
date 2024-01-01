@@ -659,3 +659,507 @@ mod test_auth {
         assert_eq!(err.status(), StatusCode::UNAUTHORIZED);
     }
 }
+
+#[cfg(test)]
+mod test_file_auth {
+    use std::ops::Sub;
+
+    use super::*;
+
+    use crate::config::MockOps;
+    use nostr::event::builder::EventBuilder;
+    use nostr::key::FromSkStr;
+    use nostr::prelude::Hash;
+    use nostr::types::time::Timestamp;
+    use nostr::{EventId, Keys};
+
+    #[test]
+    fn should_ok_on_good_auth() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let public = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";
+        let keys = Keys::from_sk_str(private).unwrap();
+        let data = b"hello";
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Payload(Hash::hash(data)),
+            ],
+        )
+        .to_event(&keys)
+        .unwrap();
+
+        let mut mock = MockOps::new();
+
+        mock.expect_get_config_values()
+            .withf(|s| s == "pubkeyWhitelist")
+            .returning(|_| Ok(vec![public.into()]));
+
+        mock.expect_get_config_value()
+            .withf(|s| s == "baseUrl")
+            .returning(|_| Ok("https://domain.com".to_string()));
+
+        let a = Auth { config: &mock };
+
+        a.file_auth(&event, data).unwrap();
+    }
+
+    #[test]
+    fn should_err_on_multiple_method_tags() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let public = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";
+        let data = b"hello";
+        let keys = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Amount {
+                    millisats: 10,
+                    bolt11: Some(String::new()),
+                },
+                Tag::Payload(Hash::hash(data)),
+            ],
+        )
+        .to_event(&keys)
+        .unwrap();
+
+        let mut mock = MockOps::new();
+
+        mock.expect_get_config_values()
+            .withf(|s| s == "pubkeyWhitelist")
+            .returning(|_| Ok(vec![public.into()]));
+
+        mock.expect_get_config_value()
+            .withf(|s| s == "baseUrl")
+            .returning(|_| Ok("https://domain.com".to_string()));
+
+        let a = Auth { config: &mock };
+
+        a.file_auth(&event, data).unwrap_err();
+    }
+
+    #[test]
+    fn should_err_on_multiple_u_tags() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let public = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";
+        let data = b"hello";
+        let keys = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Amount {
+                    millisats: 10,
+                    bolt11: Some(String::new()),
+                },
+                Tag::Payload(Hash::hash(data)),
+            ],
+        )
+        .to_event(&keys)
+        .unwrap();
+
+        let mut mock = MockOps::new();
+
+        mock.expect_get_config_values()
+            .withf(|s| s == "pubkeyWhitelist")
+            .returning(|_| Ok(vec![public.into()]));
+
+        mock.expect_get_config_value()
+            .withf(|s| s == "baseUrl")
+            .returning(|_| Ok("https://domain.com".to_string()));
+
+        let a = Auth { config: &mock };
+
+        a.file_auth(&event, data).unwrap_err();
+    }
+
+    #[test]
+    fn should_ok_on_good_auth_with_irrelevent_tags() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let public = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";
+        let data = b"hello";
+        let keys = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Amount {
+                    millisats: 10,
+                    bolt11: Some(String::new()),
+                },
+                Tag::Payload(Hash::hash(data)),
+            ],
+        )
+        .to_event(&keys)
+        .unwrap();
+
+        let mut mock = MockOps::new();
+
+        mock.expect_get_config_values()
+            .withf(|s| s == "pubkeyWhitelist")
+            .returning(|_| Ok(vec![public.into()]));
+
+        mock.expect_get_config_value()
+            .withf(|s| s == "baseUrl")
+            .returning(|_| Ok("https://domain.com".to_string()));
+
+        let a = Auth { config: &mock };
+
+        a.file_auth(&event, data).unwrap();
+    }
+
+    #[test]
+    fn should_err_on_old_timestamp() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let public = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";
+        let data = b"hello";
+        let keys = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Payload(Hash::hash(data)),
+            ],
+        )
+        .to_event(&keys)
+        .unwrap();
+
+        let event = Event {
+            created_at: Timestamp::now().sub(61_i64),
+            ..event
+        };
+
+        let mut mock = MockOps::new();
+
+        mock.expect_get_config_values()
+            .withf(|s| s == "pubkeyWhitelist")
+            .returning(|_| Ok(vec![public.into()]));
+
+        mock.expect_get_config_value()
+            .withf(|s| s == "baseUrl")
+            .returning(|_| Ok("https://domain.com".to_string()));
+
+        let a = Auth { config: &mock };
+
+        let err = a.file_auth(&event, data).unwrap_err();
+
+        assert_eq!(err.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn should_err_on_future_timestamp() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let public = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";
+        let data = b"hello";
+        let keys = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Payload(Hash::hash(data)),
+            ],
+        )
+        .to_event(&keys)
+        .unwrap();
+
+        let event = Event {
+            created_at: Timestamp::now().add(9999_i64),
+            ..event
+        };
+
+        let mut mock = MockOps::new();
+
+        mock.expect_get_config_values()
+            .withf(|s| s == "pubkeyWhitelist")
+            .returning(|_| Ok(vec![public.into()]));
+
+        mock.expect_get_config_value()
+            .withf(|s| s == "baseUrl")
+            .returning(|_| Ok("https://domain.com".to_string()));
+
+        let a = Auth { config: &mock };
+
+        let err = a.file_auth(&event, data).unwrap_err();
+
+        assert_eq!(err.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn should_err_on_bad_method_1() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let public = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";
+        let data = b"hello";
+        let keys = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::GET),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Payload(Hash::hash(data)),
+            ],
+        )
+        .to_event(&keys)
+        .unwrap();
+
+        let mut mock = MockOps::new();
+
+        mock.expect_get_config_values()
+            .withf(|s| s == "pubkeyWhitelist")
+            .returning(|_| Ok(vec![public.into()]));
+
+        mock.expect_get_config_value()
+            .withf(|s| s == "baseUrl")
+            .returning(|_| Ok("https://domain.com".to_string()));
+
+        let a = Auth { config: &mock };
+
+        let err = a.file_auth(&event, data).unwrap_err();
+
+        assert_eq!(err.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn should_err_on_bad_u_tag() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let public = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";
+        let data = b"hello";
+        let keys = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("domain.com/upload".into()),
+                Tag::Payload(Hash::hash(data)),
+            ],
+        )
+        .to_event(&keys)
+        .unwrap();
+
+        let mut mock = MockOps::new();
+
+        mock.expect_get_config_values()
+            .withf(|s| s == "pubkeyWhitelist")
+            .returning(|_| Ok(vec![public.into()]));
+
+        mock.expect_get_config_value()
+            .withf(|s| s == "baseUrl")
+            .returning(|_| Ok("https://domain.com".to_string()));
+
+        let a = Auth { config: &mock };
+
+        let err = a.file_auth(&event, data).unwrap_err();
+
+        assert_eq!(err.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn should_err_on_bad_kind() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let public = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";
+        let data = b"hello";
+        let keys = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::BadgeAward,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Payload(Hash::hash(data)),
+            ],
+        )
+        .to_event(&keys)
+        .unwrap();
+
+        let mut mock = MockOps::new();
+
+        mock.expect_get_config_values()
+            .withf(|s| s == "pubkeyWhitelist")
+            .returning(|_| Ok(vec![public.into()]));
+
+        mock.expect_get_config_value()
+            .withf(|s| s == "baseUrl")
+            .returning(|_| Ok("https://domain.com".to_string()));
+
+        let a = Auth { config: &mock };
+
+        let err = a.file_auth(&event, data).unwrap_err();
+
+        assert_eq!(err.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn should_err_when_not_on_whitelist_1() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let data = b"hello";
+        let keys = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Payload(Hash::hash(data)),
+            ],
+        )
+        .to_event(&keys)
+        .unwrap();
+
+        let mut mock = MockOps::new();
+
+        mock.expect_get_config_values()
+            .withf(|s| s == "pubkeyWhitelist")
+            .returning(|_| {
+                Ok(vec![
+                    "0000000000000000000000000000000000000000000000000000000000000000".into(),
+                    "1111111111111111111111111111111111111111111111111111111111111111".into(),
+                    "2222222222222222222222222222222222222222222222222222222222222222".into(),
+                    "3333333333333333333333333333333333333333333333333333333333333333".into(),
+                    "4444444444444444444444444444444444444444444444444444444444444444".into(),
+                ])
+            });
+
+        mock.expect_get_config_value()
+            .withf(|s| s == "baseUrl")
+            .returning(|_| Ok("https://domain.com".to_string()));
+
+        let a = Auth { config: &mock };
+
+        let err = a.file_auth(&event, data).unwrap_err();
+
+        assert_eq!(err.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn should_err_when_not_on_whitelist_2() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let data = b"hello";
+        let keys = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Payload(Hash::hash(data)),
+            ],
+        )
+        .to_event(&keys)
+        .unwrap();
+
+        let mut mock = MockOps::new();
+
+        mock.expect_get_config_values()
+            .withf(|s| s == "pubkeyWhitelist")
+            .returning(|_| Ok(vec![]));
+
+        mock.expect_get_config_value()
+            .withf(|s| s == "baseUrl")
+            .returning(|_| Ok("https://domain.com".to_string()));
+
+        let a = Auth { config: &mock };
+
+        let err = a.file_auth(&event, data).unwrap_err();
+
+        assert_eq!(err.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn should_err_when_id_is_bad() {
+        let private = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let public = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";
+        let data = b"hello";
+        let keys = Keys::from_sk_str(private).unwrap();
+        let event = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Payload(Hash::hash(data)),
+            ],
+        )
+        .to_event(&keys)
+        .unwrap();
+
+        let event = Event {
+            id: EventId::all_zeros(),
+            ..event
+        };
+
+        let mut mock = MockOps::new();
+
+        mock.expect_get_config_values()
+            .withf(|s| s == "pubkeyWhitelist")
+            .returning(|_| Ok(vec![public.into()]));
+
+        mock.expect_get_config_value()
+            .withf(|s| s == "baseUrl")
+            .returning(|_| Ok("https://domain.com".to_string()));
+
+        let a = Auth { config: &mock };
+
+        let err = a.file_auth(&event, data).unwrap_err();
+
+        assert_eq!(err.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn should_err_when_sig_is_bad() {
+        let private_a = "cb35da74d8d37ad5a2059d58e780cd0e160600ef62e3fd6a0399ebaf5b28695b";
+        let public_a = "4344e9cc253a873a005a04b9ac59a5cee30054bba9fc4841d15a95875fe116c0";
+        let private_b = "88b3d43e0c971877e01d289294b2e0a0d389a1e51b5cd11dd9e173682ab17962";
+        let data = b"hello";
+        let key_a = Keys::from_sk_str(private_a).unwrap();
+        let key_b = Keys::from_sk_str(private_b).unwrap();
+        let builder = EventBuilder::new(
+            Kind::HttpAuth,
+            "",
+            vec![
+                Tag::Method(HttpMethod::POST),
+                Tag::AbsoluteURL("https://domain.com/upload".into()),
+                Tag::Payload(Hash::hash(data)),
+            ],
+        );
+
+        let event_a = builder.clone().to_event(&key_a).unwrap();
+        let event_b = builder.to_event(&key_b).unwrap();
+
+        let event = Event {
+            sig: event_b.sig,
+            ..event_a
+        };
+
+        let mut mock = MockOps::new();
+
+        mock.expect_get_config_values()
+            .withf(|s| s == "pubkeyWhitelist")
+            .returning(|_| Ok(vec![public_a.into()]));
+
+        mock.expect_get_config_value()
+            .withf(|s| s == "baseUrl")
+            .returning(|_| Ok("https://domain.com".to_string()));
+
+        let a = Auth { config: &mock };
+
+        let err = a.file_auth(&event, data).unwrap_err();
+
+        assert_eq!(err.status(), StatusCode::UNAUTHORIZED);
+    }
+}

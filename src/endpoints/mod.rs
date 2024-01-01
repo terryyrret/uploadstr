@@ -23,24 +23,17 @@ pub fn delete_file(NostrAuth(event): NostrAuth) -> Result<String> {
     print_result(|| {
         Auth::new().auth(&event, HttpMethod::POST, "/delete")?;
 
-        get_tag(&event, "filename")
-            .and_then(|maybe_tag| {
-                maybe_tag.ok_or_else(|| {
-                    Error::from_string(
-                        "There is no filename tag specified.",
-                        StatusCode::BAD_REQUEST,
-                    )
-                })
-            })
-            .and_then(|filename| {
-                Config::new()
-                    .get_config_value("filesDir")
-                    .and_then(|files_dir| {
-                        FS::new()
-                            .delete_file(&files_dir, &filename)
-                            .map(|()| format!("Successfully deleted {filename}"))
-                    })
-            })
+        let filename = get_tag(&event, "filename")?.ok_or_else(|| {
+            Error::from_string(
+                "There is no filename tag specified.",
+                StatusCode::BAD_REQUEST,
+            )
+        })?;
+        let files_dir = Config::new().get_config_value("filesDir")?;
+
+        FS::new()
+            .delete_file(&files_dir, &filename)
+            .map(|()| format!("Successfully deleted {filename}"))
     })
 }
 
@@ -64,26 +57,21 @@ pub fn upload_file(NostrAuth(event): NostrAuth, data: Vec<u8>) -> Result<String>
 pub fn list_files(NostrAuth(event): NostrAuth) -> Result<String> {
     print_result(|| {
         Auth::new().auth(&event, HttpMethod::GET, "/list")?;
-        let config = Config::new();
 
-        config.get_config_value("baseUrl").and_then(|base_url| {
-            config.get_config_value("filesDir").and_then(|files_dir| {
-                FS::new()
-                    .get_files(&files_dir)
-                    .map(|list| {
-                        list.into_iter()
-                            .map(|filename| format!("{base_url}/f/{filename}"))
-                            .collect::<Vec<String>>()
-                    })
-                    .and_then(|v| {
-                        to_string(&v).map_err(|_| {
-                            Error::from_string(
-                                "Failed to convert reply to JSON",
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                            )
-                        })
-                    })
-            })
+        let config = Config::new();
+        let base_url = config.get_config_value("baseUrl")?;
+        let files_dir = config.get_config_value("filesDir")?;
+        let filenames = FS::new().get_files(&files_dir)?;
+        let urls = filenames
+            .into_iter()
+            .map(|filename| format!("{base_url}/f/{filename}"))
+            .collect::<Vec<String>>();
+
+        to_string(&urls).map_err(|_| {
+            Error::from_string(
+                "Failed to convert reply to JSON",
+                StatusCode::INTERNAL_SERVER_ERROR,
+            )
         })
     })
 }
