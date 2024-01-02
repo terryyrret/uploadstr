@@ -9,7 +9,7 @@
 A static file server that allows for uploading files, deleting files, viewing a list of uploaded files, or statically serving files from a URL. Uploading, deleting, and viewing a list of files uses Nostr HTTP Auth (NIP-98) to authenticate the user. This service is meant for self-hosting and not intended for large scale use.
 
 ## Motivation
-Why depend on a service like nostr.build when you can upload images and videos to your own service? A centralized service like nostr.build can take down your images and videos which results in viewers of your affected notes seeing HTTP 404 Errors and missing potentially important context. Running a service like uploadstr reduces that liability because you are not dependent on a service entirely managed by someone else.
+Why depend on a service like nostr.build when you can upload images and videos to your own service? A centralized service like nostr.build can take down your images and videos which results in viewers of your affected notes seeing 404 Errors and missing potentially important context. Running a service like uploadstr reduces that liability because you are not dependent on a service entirely managed by someone else.
 
 ## Features
 - RESTful API Endpoints
@@ -21,8 +21,8 @@ Why depend on a service like nostr.build when you can upload images and videos t
 - Docker container to easily spin up and run service
 - Configurable pubkey whitelist to configure who can use the /list, /delete, /upload endpoints.
 
-### Notes
-I have another project on github called [uploadstr-webui](https://github.com/terryyrret/uploadstr-webui) which you can also self-host and connect it to a running instance of uploadstr. It allows you to use a NIP-07 extension like nos-2x to upload, delete, or view a list of files from your uploadstr instance.
+## Notes
+I have another project on github called [uploadstr-webui](https://github.com/terryyrret/uploadstr-webui) which you can also self-host and connect it to a running instance of uploadstr. It allows you to use a NIP-07 extension like nos-2x to authenticate to upload, delete, or view a list of files from your uploadstr instance.
 
 ## Config file
 Uploadstr looks for a JSON config file stored at /etc/uploadstr/config. It does not generate one by default so you'll have to create one and put it there. Here is a sample config file.
