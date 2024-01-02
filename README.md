@@ -11,6 +11,12 @@ A static file server that allows for uploading files, deleting files, viewing a 
 ## Motivation
 Why depend on a service like nostr.build when you can upload images and videos to your own service? A centralized service like nostr.build can take down your images and videos which results in viewers of your affected notes seeing 404 Errors and missing potentially important context. Running a service like uploadstr reduces that liability because you are not dependent on a service entirely managed by someone else.
 
+Take a look at this post I made on nostr with an image I uploaded to my own instance of uploadstr.
+
+![](static/example.png)
+
+All I needed to do to use that image from my uploadstr service was to just include the URL in the note it gave me when I uploaded the image to it: <https://img.yrret.me/f/KLrdWqwunV_By9unAKnKwISfCB7A4O5JIr91ynOoNJY.jpg>
+
 ## Features
 - RESTful API Endpoints
   - /list - get a list of files stored on the server (requires Nostr auth)
