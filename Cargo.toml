@@ -11,7 +11,7 @@ poem = { version = "1.3.59", features = [ "static-files" ] }
 tokio = { version = "1.35.1", features = [ "rt-multi-thread" ] }
 base64 = "0.21.5"
 nostr = "0.26.0"
-serde_json = { version = "1.0.110", features = [ "std" ] }
+serde_json = { version = "1.0.111", features = [ "std" ] }
 config = "0.13.4"
 ring = "0.17.7"
 serde = "1.0.190"
